@@ -1,25 +1,111 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Data from a personal activity monitoring device"
+author: "Mauricio Olivera"
+date: "Saturday, November 15, 2014"
+output: html_document
 ---
 
+```{r, echo=FALSE}
+setwd("C:\\Users\\olivem\\Desktop\\Data Science Course\\5.Reproducible Research\\Peer Assessment 1")
+library(sqldf)
+```
 
-## Loading and preprocessing the data
+##Loading and processing the data
+###1.Load the data
+```{r, echo=TRUE}
+activity<-read.csv("activity.csv")
+```
 
+###2.Process/transform the data (if necessary) into a format suitable for your analysis
+```{r, echo=TRUE}
+q1 <- sqldf("SELECT date, SUM(steps) AS steps FROM activity WHERE NOT steps IS NULL GROUP BY date")
+```
 
+##What is the mean total number of steps taken per day?
+###1.Make a histogram of the total number of steps taken each day
+```{r, echo=TRUE}
+par(mfrow=c(1,1))
+hist(q1$steps,main="Total number of steps taken each day",xlab="Steps")
+```
 
-## What is mean total number of steps taken per day?
+###2.Calculate and report the mean and median total number of steps taken per day
+```{r, echo=TRUE}
+q2a <- mean(q1$steps)
+q2a
+q2b <- median(q1$steps)
+q2b
+```
 
+##What is the average daily activity pattern?
+###1.Make a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
+```{r, echo=TRUE}
+q3 <- sqldf("SELECT interval, AVG(steps) AS steps FROM activity WHERE NOT steps IS NULL GROUP BY interval")
+plot(q3$interval,q3$steps,type="l",xaxt="n",ylab="Average steps taken",xlab="5-minute interval (interval)")
+title(main="Average daily activity pattern")
+axis(1, at = seq(0, 2355, by = 500), las=2)
+```
 
+###2.Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+```{r, echo=TRUE}
+q4 <- max(q3$steps)
+q4
+```
 
-## What is the average daily activity pattern?
+##Imputing missing values
+###1.Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)
+```{r, echo=TRUE}
+q5 <- sqldf("SELECT COUNT(*) AS records FROM activity WHERE steps IS NULL")
+q5
+```
 
+###2.Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.
 
+The strategy inplace is to calcualte the mean for each interval and then use this output for each interval for the missing values
+```{r, echo=TRUE}
+q6 <- sqldf("SELECT interval, AVG(steps) AS steps FROM activity WHERE NOT steps IS NULL GROUP BY interval")
+q6
+```
 
-## Imputing missing values
+###3.Create a new dataset that is equal to the original dataset but with the missing data filled in.
+```{r, echo=TRUE}
+q7 <- activity
 
+for (n in 1:288)
+{
+q7$steps[n] <- q6$steps[n]
+}
+```
 
+###4.Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+```{r, echo=TRUE}
+q8 <- sqldf("SELECT date, SUM(steps) AS steps FROM q7 WHERE NOT steps IS NULL GROUP BY date")
+hist(q8$steps,main="Total number of steps taken each day",xlab="Steps")
 
-## Are there differences in activity patterns between weekdays and weekends?
+q9a <- mean(q8$steps)
+q9a
+
+q10b <- median(q8$steps)
+q10b
+```
+
+##Are there differences in activity patterns between weekdays and weekends?
+###1.Create a new factor variable in the dataset with two levels - "weekday" and "weekend" indicating whether a given date is a weekday or weekend day.
+```{r, echo=TRUE}
+q11 <- sqldf("SELECT steps, date, strftime('%w', date) AS weekday_num, CASE WHEN strftime('%w', date) IN('1','2','3','4','5') THEN 'Weekday' ELSE 'Weekend' END AS weekday, interval FROM q7")
+```
+
+###2.Make a panel plot containing a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis). See the README file in the GitHub repository to see an example of what this plot should look like using simulated data.
+```{r, echo=TRUE}
+q12 <- sqldf("SELECT interval, AVG(steps) AS steps FROM q11 WHERE weekday = 'Weekday' GROUP BY interval")
+q13 <- sqldf("SELECT interval, AVG(steps) AS steps FROM q11 WHERE weekday = 'Weekend' GROUP BY interval")
+
+par(mfrow=c(1,2))
+
+plot(q12$interval,q12$steps,type="l",xaxt="n",ylab="Average steps taken",xlab="5-minute interval (interval)")
+title(main="Weekday Average daily activity pattern")
+axis(1, at = seq(0, 2355, by = 500), las=2)
+
+plot(q13$interval,q13$steps,type="l",xaxt="n",ylab="Average steps taken",xlab="5-minute interval (interval)")
+title(main="Weekend Average daily activity pattern")
+axis(1, at = seq(0, 2355, by = 500), las=2)
+```
